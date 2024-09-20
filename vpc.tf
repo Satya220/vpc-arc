@@ -128,3 +128,45 @@ resource "aws_iam_role_policy_attachment" "test-attach" {
   role       = aws_iam_role.test_role.name
   policy_arn = arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
 }
+
+resource "aws_ec2_transit_gateway" "ec2_transit" {
+  description = "Transit gateway"
+}
+
+resource "aws_ec2_transit_gateway_vpc_attachment" "bast_tgw" {
+  subnet_ids         = [aws_subnet.bastion.id]
+  transit_gateway_id = aws_ec2_transit_gateway.ec2_transit.id
+  vpc_id             = aws_vpc.bastion.id
+}
+
+resource "aws_ec2_transit_gateway_vpc_attachment" "app_tgw" {
+  subnet_ids         = [aws_subnet.public.id,aws_subnet.public_2.id]
+  transit_gateway_id = aws_ec2_transit_gateway.ec2_transit.id
+  vpc_id             = aws_vpc.app.id
+}
+
+resource "aws_ec2_transit_gateway_connect" "bast_attachment" {
+  transport_attachment_id = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
+  transit_gateway_id      = aws_ec2_transit_gateway.example.id
+}
+
+resource "aws_ec2_transit_gateway_connect" "app_attachment" {
+  transport_attachment_id = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
+  transit_gateway_id      = aws_ec2_transit_gateway.example.id
+}
+
+resource "aws_ec2_transit_gateway_route_table" "tgw_rt" {
+  transit_gateway_id = aws_ec2_transit_gateway.ec2_transit.id
+}
+
+resource "aws_ec2_transit_gateway_route" "example" {
+  destination_cidr_block         = "0.0.0.0/0"
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw_rt.association_default_route_table_id
+}
+
+resource "aws_ec2_transit_gateway_route" "example" {
+  destination_cidr_block         = "0.0.0.0/0"
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw_rt.association_default_route_table_id
+}
