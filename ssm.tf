@@ -1,4 +1,4 @@
-resource "aws_iam_role" "test_role" {
+resource "aws_iam_role" "ec2_role" {
   name = "test_role"
 
   # Terraform's "jsonencode" function converts a
@@ -18,11 +18,11 @@ resource "aws_iam_role" "test_role" {
   })
 
   tags = {
-    tag-key = "test_role"
+    tag-key = "ec2_role"
   }
 }
 
-resource "aws_iam_role_policy_attachment" "test-attach" {
+resource "aws_iam_role_policy_attachment" "ec2-attach" {
   role       = aws_iam_role.test_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }

@@ -73,44 +73,67 @@ resource "aws_instance" "bastion" {
   }
 }
 
-resource "aws_instance" "app_1" {
-  ami           = aws_ami.copy.example.id
-  instance_type = "t3.micro"
-  subnet_id = aws_subnet.private.id
-  iam_instance_profile = aws_iam_role.test_role.name
-  security_groups = [aws_security_group.allow_ssh.id]
+# resource "aws_instance" "app_1" {
+#   ami           = aws_ami.copy.example.id
+#   instance_type = "t3.micro"
+#   subnet_id = aws_subnet.private.id
+#   iam_instance_profile = aws_iam_role.test_role.name
+#   security_groups = [aws_security_group.allow_ssh.id]
 
-  tags = {
-    Name = "App_1"
+#   tags = {
+#     Name = "App_1"
+#   }
+# }
+
+# resource "aws_instance" "app_2" {
+#   ami           = aws_ami.copy.example.id
+#   instance_type = "t3.micro"
+#   subnet_id = aws_subnet.private_2.id
+#   iam_instance_profile = aws_iam_role.test_role.name
+#   security_groups = [aws_security_group.allow_ssh.id]
+
+#   tags = {
+#     Name = "App_2"
+#   }
+# }
+
+# resource "aws_ssm_activation" "foo" {
+#   name               = "test_ssm_activation"
+#   description        = "Test"
+#   iam_role           = "arn:aws:iam::134955369621:role/aws-service-role/ssm.amazonaws.com/AWSServiceRoleForAmazonSSM"
+#   registration_limit = "5"
+#   # depends_on         = [aws_iam_role_policy_attachment.test_attach]
+# }
+
+resource "aws_launch_template" "boobar" {
+  name_prefix   = "boobar"
+  image_id      = "ami-0c61a52c1ebb85606"
+  instance_type = "t3.micro"
+}
+
+resource "aws_autoscaling_group" "bar" {
+  availability_zones = ["eu-west-1a","eu-west-1b"]
+  desired_capacity   = 1
+  max_size           = 1
+  min_size           = 1
+
+  launch_template {
+    id      = aws_launch_template.boobar.id
+    version = "$Latest"
   }
 }
 
-resource "aws_instance" "app_2" {
-  ami           = aws_ami.copy.example.id
-  instance_type = "t3.micro"
-  subnet_id = aws_subnet.private_2.id
-  iam_instance_profile = aws_iam_role.test_role.name
-  security_groups = [aws_security_group.allow_ssh.id]
-
-  tags = {
-    Name = "App_2"
-  }
+resource "tls_private_key" "pk" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-resource "aws_ssm_activation" "foo" {
-  name               = "test_ssm_activation"
-  description        = "Test"
-  iam_role           = "arn:aws:iam::134955369621:role/aws-service-role/ssm.amazonaws.com/AWSServiceRoleForAmazonSSM"
-  registration_limit = "5"
-  # depends_on         = [aws_iam_role_policy_attachment.test_attach]
-}
+resource "aws_key_pair" "kp" {
+  key_name   = "myKey"       # Create "myKey" to AWS!!
+  public_key = tls_private_key.pk.public_key_openssh
 
-resource "aws_ssm_association" "example" {
-  name = aws_ssm_document.example.name
-
-  targets {
-    key    = "InstanceIds"
-    values = [*]
+  provisioner "local-exec" { # Create "myKey.pem" to your computer!!
+    command = "echo '${tls_private_key.pk.private_key_pem}' > ./myKey.pem"
   }
 }
 
@@ -219,7 +242,7 @@ resource "aws_iam_role" "test_role" {
 
 resource "aws_iam_role_policy_attachment" "test-attach" {
   role       = aws_iam_role.test_role.name
-  policy_arn = arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
 }
 
 resource "aws_ec2_transit_gateway" "ec2_transit" {
@@ -252,13 +275,13 @@ resource "aws_ec2_transit_gateway_route_table" "tgw_rt" {
   transit_gateway_id = aws_ec2_transit_gateway.ec2_transit.id
 }
 
-resource "aws_ec2_transit_gateway_route" "example" {
+resource "aws_ec2_transit_gateway_route" "bast-route" {
   destination_cidr_block         = "0.0.0.0/0"
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
   transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw_rt.association_default_route_table_id
 }
 
-resource "aws_ec2_transit_gateway_route" "example" {
+resource "aws_ec2_transit_gateway_route" "app-route" {
   destination_cidr_block         = "0.0.0.0/0"
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
   transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw_rt.association_default_route_table_id
