@@ -18,7 +18,7 @@ resource "aws_vpc" "app" {
 
 resource "aws_subnet" "bastion" {
   vpc_id     = aws_vpc.bast.id
-  cidr_block = "192.168.2.0/16"
+  cidr_block = "192.168.1.0/24"
 
   tags = {
     Name = "bastion"
@@ -27,7 +27,7 @@ resource "aws_subnet" "bastion" {
 
 resource "aws_subnet" "public" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.1.0/16"
+  cidr_block = "172.32.1.0/24"
 
   tags = {
     Name = "public"
@@ -36,7 +36,7 @@ resource "aws_subnet" "public" {
 
 resource "aws_subnet" "private" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.2.0/16"
+  cidr_block = "172.32.2.0/24"
 
   tags = {
     Name = "private"
@@ -45,7 +45,7 @@ resource "aws_subnet" "private" {
 
 resource "aws_subnet" "public_2" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.3.0/16"
+  cidr_block = "172.32.3.0/24"
 
   tags = {
     Name = "public_2"
@@ -54,7 +54,7 @@ resource "aws_subnet" "public_2" {
 
 resource "aws_subnet" "private_2" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.4.0/16"
+  cidr_block = "172.32.4.0/24"
 
   tags = {
     Name = "private_2"
@@ -62,15 +62,21 @@ resource "aws_subnet" "private_2" {
 }
 
 resource "aws_instance" "bastion" {
-  ami           = aws_ami.copy.example.id
+  ami           = data.aws_ami.example.id
   instance_type = "t3.micro"
   subnet_id = aws_subnet.bastion.id
-  iam_instance_profile = aws_iam_role.test_role.name
+  iam_instance_profile = aws_iam_instance_profile.test_profile.name
   security_groups = [aws_security_group.allow_ssh.id]
+  key_name   = "myKey"
 
   tags = {
     Name = "Bastion_Host"
   }
+}
+
+resource "aws_iam_instance_profile" "test_profile" {
+  name = "test_profile"
+  role = aws_iam_role.ec2_role.name
 }
 
 # resource "aws_instance" "app_1" {
@@ -106,24 +112,27 @@ resource "aws_instance" "bastion" {
 # }
 
 resource "aws_launch_template" "boobar" {
-  name_prefix   = "boobar"
+  name          = "web_config"
   image_id      = "ami-0c61a52c1ebb85606"
   instance_type = "t3.micro"
 }
 
 resource "aws_autoscaling_group" "bar" {
-  availability_zones = ["eu-west-1a","eu-west-1b"]
-  desired_capacity   = 1
-  max_size           = 1
+  vpc_zone_identifier = [aws_subnet.private.id,aws_subnet.private_2.id]
+  desired_capacity   = 2
+  max_size           = 3
   min_size           = 1
 
-  launch_template {
+
+launch_template {
     id      = aws_launch_template.boobar.id
     version = "$Latest"
   }
 }
 
-resource "tls_private_key" "pk" {
+
+
+ resource "tls_private_key" "pk" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
@@ -140,6 +149,10 @@ resource "aws_key_pair" "kp" {
 resource "aws_eip" "bast" {
   instance = aws_instance.bastion.id
   domain   = "vpc"
+}
+
+resource "aws_eip" "nat" {
+  vpc      = true
 }
 
 resource "aws_security_group" "allow_ssh" {
@@ -160,6 +173,14 @@ resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4" {
   to_port           = 22
 }
 
+resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv4" {
+  security_group_id = aws_security_group.allow_ssh.id
+  cidr_ipv4         = aws_vpc.bast.cidr_block
+  from_port         = 80
+  ip_protocol       = "tcp"
+  to_port           = 80
+}
+
 resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
   security_group_id = aws_security_group.allow_ssh.id
   cidr_ipv4         = "0.0.0.0/0"
@@ -167,6 +188,7 @@ resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
 }
 
 resource "aws_nat_gateway" "nat" {
+  allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public.id
 
   tags = {
@@ -175,7 +197,7 @@ resource "aws_nat_gateway" "nat" {
 
   # To ensure proper ordering, it is recommended to add an explicit dependency
   # on the Internet Gateway for the VPC.
-  depends_on = [aws_internet_gateway.example]
+  depends_on = [aws_internet_gateway.bast_gw]
 }
 
 resource "aws_internet_gateway" "bast_gw" {
@@ -196,14 +218,14 @@ resource "aws_internet_gateway" "app_gw" {
 
 resource "aws_flow_log" "app_log" {
   iam_role_arn    = aws_iam_role.test_role.arn
-  log_destination = aws_cloudwatch_log_group.app_log.arn
+  log_destination = aws_cloudwatch_log_group.app_logs.arn
   traffic_type    = "ALL"
   vpc_id          = aws_vpc.app.id
 }
 
 resource "aws_flow_log" "bast_log" {
   iam_role_arn    = aws_iam_role.test_role.arn
-  log_destination = aws_cloudwatch_log_group.bast_log.arn
+  log_destination = aws_cloudwatch_log_group.bast_logs.arn
   traffic_type    = "ALL"
   vpc_id          = aws_vpc.bast.id
 }
@@ -229,7 +251,7 @@ resource "aws_iam_role" "test_role" {
         Effect = "Allow"
         Sid    = ""
         Principal = {
-          Service = "ec2.amazonaws.com"
+          Service = "vpc-flow-logs.amazonaws.com"
         }
       },
     ]
@@ -252,7 +274,7 @@ resource "aws_ec2_transit_gateway" "ec2_transit" {
 resource "aws_ec2_transit_gateway_vpc_attachment" "bast_tgw" {
   subnet_ids         = [aws_subnet.bastion.id]
   transit_gateway_id = aws_ec2_transit_gateway.ec2_transit.id
-  vpc_id             = aws_vpc.bastion.id
+  vpc_id             = aws_vpc.bast.id
 }
 
 resource "aws_ec2_transit_gateway_vpc_attachment" "app_tgw" {
@@ -263,12 +285,12 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "app_tgw" {
 
 resource "aws_ec2_transit_gateway_connect" "bast_attachment" {
   transport_attachment_id = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
-  transit_gateway_id      = aws_ec2_transit_gateway.example.id
+  transit_gateway_id      = aws_ec2_transit_gateway.ec2_transit.id
 }
 
 resource "aws_ec2_transit_gateway_connect" "app_attachment" {
   transport_attachment_id = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
-  transit_gateway_id      = aws_ec2_transit_gateway.example.id
+  transit_gateway_id      = aws_ec2_transit_gateway.ec2_transit.id
 }
 
 resource "aws_ec2_transit_gateway_route_table" "tgw_rt" {
@@ -278,11 +300,11 @@ resource "aws_ec2_transit_gateway_route_table" "tgw_rt" {
 resource "aws_ec2_transit_gateway_route" "bast-route" {
   destination_cidr_block         = "0.0.0.0/0"
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
-  transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw_rt.association_default_route_table_id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway.ec2_transit.association_default_route_table_id
 }
 
 resource "aws_ec2_transit_gateway_route" "app-route" {
   destination_cidr_block         = "0.0.0.0/0"
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
-  transit_gateway_route_table_id = aws_ec2_transit_gateway.tgw_rt.association_default_route_table_id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway.ec2_transit.association_default_route_table_id
 }
