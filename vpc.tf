@@ -37,6 +37,7 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   vpc_id     = aws_vpc.app.id
   cidr_block = "172.32.2.0/24"
+  availability_zone = "eu-west-1a"
 
   tags = {
     Name = "private"
@@ -55,6 +56,7 @@ resource "aws_subnet" "public_2" {
 resource "aws_subnet" "private_2" {
   vpc_id     = aws_vpc.app.id
   cidr_block = "172.32.4.0/24"
+  availability_zone = "eu-west-1b"
 
   tags = {
     Name = "private_2"
@@ -115,6 +117,11 @@ resource "aws_launch_template" "boobar" {
   name          = "web_config"
   image_id      = "ami-0c61a52c1ebb85606"
   instance_type = "t3.micro"
+  key_name   = "myKey"
+
+
+  # security_groups = [aws_security_group.private_sg.name]
+
 }
 
 resource "aws_autoscaling_group" "bar" {
@@ -122,7 +129,6 @@ resource "aws_autoscaling_group" "bar" {
   desired_capacity   = 2
   max_size           = 3
   min_size           = 1
-
 
 launch_template {
     id      = aws_launch_template.boobar.id
@@ -167,7 +173,7 @@ resource "aws_security_group" "allow_ssh" {
 
 resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4" {
   security_group_id = aws_security_group.allow_ssh.id
-  cidr_ipv4         = aws_vpc.bast.cidr_block
+  cidr_ipv4         = "0.0.0.0/0"
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22
@@ -175,13 +181,45 @@ resource "aws_vpc_security_group_ingress_rule" "allow_tls_ipv4" {
 
 resource "aws_vpc_security_group_ingress_rule" "allow_http_ipv4" {
   security_group_id = aws_security_group.allow_ssh.id
-  cidr_ipv4         = aws_vpc.bast.cidr_block
+  cidr_ipv4         = "0.0.0.0/0"
   from_port         = 80
   ip_protocol       = "tcp"
   to_port           = 80
 }
 
 resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
+  security_group_id = aws_security_group.allow_ssh.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1" # semantically equivalent to all ports
+}
+
+resource "aws_security_group" "private_sg" {
+  name        = "private_sg"
+  description = "Allow TLS inbound traffic and all outbound traffic"
+  vpc_id      = aws_vpc.bast.id
+
+  tags = {
+    Name = "allow_ssh"
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ingress_pri" {
+  security_group_id = aws_security_group.allow_ssh.id
+  cidr_ipv4         = "192.168.1.67/32"
+  from_port         = 22
+  ip_protocol       = "tcp"
+  to_port           = 22
+}
+
+resource "aws_vpc_security_group_ingress_rule" "http_pri" {
+  security_group_id = aws_security_group.allow_ssh.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  ip_protocol       = "tcp"
+  to_port           = 80
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_pri" {
   security_group_id = aws_security_group.allow_ssh.id
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1" # semantically equivalent to all ports
@@ -298,13 +336,13 @@ resource "aws_ec2_transit_gateway_route_table" "tgw_rt" {
 }
 
 resource "aws_ec2_transit_gateway_route" "bast-route" {
-  destination_cidr_block         = "0.0.0.0/0"
+  destination_cidr_block         = aws_vpc.app.cidr_block
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
   transit_gateway_route_table_id = aws_ec2_transit_gateway.ec2_transit.association_default_route_table_id
 }
 
 resource "aws_ec2_transit_gateway_route" "app-route" {
-  destination_cidr_block         = "0.0.0.0/0"
+  destination_cidr_block         = aws_vpc.bast.cidr_block
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
   transit_gateway_route_table_id = aws_ec2_transit_gateway.ec2_transit.association_default_route_table_id
 }
