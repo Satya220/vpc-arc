@@ -118,9 +118,7 @@ resource "aws_launch_template" "boobar" {
   image_id      = "ami-0c61a52c1ebb85606"
   instance_type = "t3.micro"
   key_name   = "myKey"
-
-
-  # security_groups = [aws_security_group.private_sg.name]
+  vpc_security_group_ids = [aws_security_group.private_sg.id]
 
 }
 
@@ -129,6 +127,7 @@ resource "aws_autoscaling_group" "bar" {
   desired_capacity   = 2
   max_size           = 3
   min_size           = 1
+
 
 launch_template {
     id      = aws_launch_template.boobar.id
@@ -196,7 +195,7 @@ resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
 resource "aws_security_group" "private_sg" {
   name        = "private_sg"
   description = "Allow TLS inbound traffic and all outbound traffic"
-  vpc_id      = aws_vpc.bast.id
+  vpc_id      = aws_vpc.app.id
 
   tags = {
     Name = "allow_ssh"
@@ -204,15 +203,15 @@ resource "aws_security_group" "private_sg" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "ingress_pri" {
-  security_group_id = aws_security_group.allow_ssh.id
-  cidr_ipv4         = "192.168.1.67/32"
+  security_group_id = aws_security_group.private_sg.id
+  cidr_ipv4         = aws_vpc.bast.cidr_block
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22
 }
 
 resource "aws_vpc_security_group_ingress_rule" "http_pri" {
-  security_group_id = aws_security_group.allow_ssh.id
+  security_group_id = aws_security_group.private_sg.id
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 80
   ip_protocol       = "tcp"
