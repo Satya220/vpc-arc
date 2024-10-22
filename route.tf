@@ -29,6 +29,19 @@ resource "aws_route_table" "nat_route" {
 
   route {
     cidr_block = "0.0.0.0/0"
+    gateway_id = aws_nat_gateway.nat.id
+  }
+
+  tags = {
+    Name = "nat_route"
+  }
+}
+
+resource "aws_route_table" "nigw_route" {
+  vpc_id = aws_vpc.app.id
+
+  route {
+    cidr_block = [aws_eip.nat]
     gateway_id = aws_internet_gateway.app_gw.id
   }
 
