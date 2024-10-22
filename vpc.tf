@@ -315,7 +315,7 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "bast_tgw" {
 }
 
 resource "aws_ec2_transit_gateway_vpc_attachment" "app_tgw" {
-  subnet_ids         = [aws_subnet.public.id,aws_subnet.public_2.id]
+  subnet_ids         = [aws_subnet.private.id,aws_subnet.private_2.id]
   transit_gateway_id = aws_ec2_transit_gateway.ec2_transit.id
   vpc_id             = aws_vpc.app.id
 }
