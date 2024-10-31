@@ -335,13 +335,29 @@ resource "aws_ec2_transit_gateway_route_table" "tgw_rt" {
 }
 
 resource "aws_ec2_transit_gateway_route" "bast-route" {
-  destination_cidr_block         = aws_vpc.app.cidr_block
+  destination_cidr_block         = aws_subnet.private.cidr_block
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
-  transit_gateway_route_table_id = aws_ec2_transit_gateway.ec2_transit.association_default_route_table_id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
+}
+
+resource "aws_ec2_transit_gateway_route" "bast-2-route" {
+  destination_cidr_block         = aws_subnet.private_2.cidr_block
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
 }
 
 resource "aws_ec2_transit_gateway_route" "app-route" {
-  destination_cidr_block         = aws_vpc.bast.cidr_block
+  destination_cidr_block         = aws_subnet.bastion.cidr_block
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
-  transit_gateway_route_table_id = aws_ec2_transit_gateway.ec2_transit.association_default_route_table_id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
 }
+
+# resource "aws_ec2_transit_gateway_route_table_association" "bast_rta" {
+#   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
+#   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
+# }
+
+# resource "aws_ec2_transit_gateway_route_table_association" "app_rta" {
+#   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
+#   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
+# }

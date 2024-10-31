@@ -37,18 +37,44 @@ resource "aws_route_table" "nat_route" {
   }
 }
 
-resource "aws_route_table" "nigw_route" {
+resource "aws_route_table" "trans_route" {
   vpc_id = aws_vpc.app.id
 
   route {
-    cidr_block = [aws_eip.nat]
-    gateway_id = aws_internet_gateway.app_gw.id
+    cidr_block = aws_vpc.bast.cidr_block
+    gateway_id = aws_ec2_transit_gateway.ec2_transit.id
   }
 
   tags = {
-    Name = "nat_route"
+    Name = "trans_route"
   }
 }
+
+resource "aws_route_table" "btrt_route" {
+  vpc_id = aws_vpc.bast.id
+
+  route {
+    cidr_block = aws_vpc.app.cidr_block
+    gateway_id = aws_ec2_transit_gateway.ec2_transit.id
+  }
+
+  tags = {
+    Name = "btrt_route"
+  }
+}
+
+# resource "aws_route_table" "nigw_route" {
+#   vpc_id = aws_vpc.app.id
+
+#   route {
+#     cidr_block = "18.202.128.71/32"
+#     gateway_id = aws_internet_gateway.app_gw.id
+#   }
+
+#   tags = {
+#     Name = "nigw_route"
+#   }
+# }
 
 resource "aws_route_table_association" "bast_route_asso" {
   subnet_id      = aws_subnet.bastion.id
