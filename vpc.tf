@@ -67,8 +67,8 @@ resource "aws_instance" "bastion" {
   ami           = data.aws_ami.example.id
   instance_type = "t3.micro"
   subnet_id = aws_subnet.bastion.id
-  iam_instance_profile = aws_iam_instance_profile.test_profile.name
-  security_groups = [aws_security_group.allow_ssh.id]
+  # iam_instance_profile = aws_iam_instance_profile.test_profile.name
+  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
   key_name   = "myKey"
 
   tags = {
@@ -76,10 +76,10 @@ resource "aws_instance" "bastion" {
   }
 }
 
-resource "aws_iam_instance_profile" "test_profile" {
-  name = "test_profile"
-  role = aws_iam_role.ec2_role.name
-}
+# resource "aws_iam_instance_profile" "test_profile" {
+#   name = "test_profile"
+#   role = aws_iam_role.ec2_role.name
+# }
 
 # resource "aws_instance" "app_1" {
 #   ami           = aws_ami.copy.example.id
@@ -115,7 +115,7 @@ resource "aws_iam_instance_profile" "test_profile" {
 
 resource "aws_launch_template" "boobar" {
   name          = "web_config"
-  image_id      = "ami-0c61a52c1ebb85606"
+  image_id      = "ami-0d64bb532e0502c46"
   instance_type = "t3.micro"
   key_name   = "myKey"
   vpc_security_group_ids = [aws_security_group.private_sg.id]
@@ -198,16 +198,16 @@ resource "aws_security_group" "private_sg" {
   vpc_id      = aws_vpc.app.id
 
   tags = {
-    Name = "allow_ssh"
+    Name = "private_sg"
   }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "ingress_pri" {
   security_group_id = aws_security_group.private_sg.id
-  cidr_ipv4         = aws_vpc.bast.cidr_block
+  cidr_ipv4         = "0.0.0.0/0"
   from_port         = 22
   ip_protocol       = "tcp"
-  to_port           = 22
+  to_port           = 22  
 }
 
 resource "aws_vpc_security_group_ingress_rule" "http_pri" {
@@ -219,7 +219,7 @@ resource "aws_vpc_security_group_ingress_rule" "http_pri" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_pri" {
-  security_group_id = aws_security_group.allow_ssh.id
+  security_group_id = aws_security_group.private_sg.id
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1" # semantically equivalent to all ports
 }
@@ -234,7 +234,7 @@ resource "aws_nat_gateway" "nat" {
 
   # To ensure proper ordering, it is recommended to add an explicit dependency
   # on the Internet Gateway for the VPC.
-  depends_on = [aws_internet_gateway.bast_gw]
+  depends_on = [aws_internet_gateway.app_gw]
 }
 
 resource "aws_internet_gateway" "bast_gw" {
@@ -335,29 +335,29 @@ resource "aws_ec2_transit_gateway_route_table" "tgw_rt" {
 }
 
 resource "aws_ec2_transit_gateway_route" "bast-route" {
-  destination_cidr_block         = aws_subnet.private.cidr_block
-  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
-  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
-}
-
-resource "aws_ec2_transit_gateway_route" "bast-2-route" {
-  destination_cidr_block         = aws_subnet.private_2.cidr_block
-  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
-  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
-}
-
-resource "aws_ec2_transit_gateway_route" "app-route" {
-  destination_cidr_block         = aws_subnet.bastion.cidr_block
+  destination_cidr_block         = aws_vpc.app.cidr_block
   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
 }
 
-# resource "aws_ec2_transit_gateway_route_table_association" "bast_rta" {
-#   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
-#   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
-# }
-
-# resource "aws_ec2_transit_gateway_route_table_association" "app_rta" {
+# resource "aws_ec2_transit_gateway_route" "bast-2-route" {
+#   destination_cidr_block         = aws_vpc.private_2.cidr_block
 #   transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
 #   transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
 # }
+
+resource "aws_ec2_transit_gateway_route" "app-route" {
+  destination_cidr_block         = aws_vpc.bast.cidr_block
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
+}
+
+resource "aws_ec2_transit_gateway_route_table_propagation" "bast_prop" {
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.bast_tgw.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
+}
+
+resource "aws_ec2_transit_gateway_route_table_propagation" "app_prop" {
+  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.app_tgw.id
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.tgw_rt.id
+}

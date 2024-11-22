@@ -1,10 +1,10 @@
 data "aws_ami" "example" {
   most_recent      = true
-  owners           = ["979382823631"]
+  owners           = ["099720109477"]
 
   filter {
     name   = "name"
-    values = ["bitnami-processmaker-4.7.1-14-r21-linux-debian-11-x86_64-hvm-ebs-nami"]
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-20240927"]
   }
 
   filter {
