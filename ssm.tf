@@ -80,6 +80,13 @@ resource "aws_lb_target_group" "alb-example" {
   port        = 80
   protocol    = "TCP"
   vpc_id      = aws_vpc.app.id
+  health_check
+  {
+   healthy_threshold = 3
+   matcher = 200
+   path = "/"
+   protocol = HTTPS
+  }
 }
 
 resource "aws_lb_listener" "front_end" {
@@ -91,12 +98,12 @@ resource "aws_lb_listener" "front_end" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.front_end.arn
+    target_group_arn = aws_lb_target_group.alb-example.arn
   }
 }
 
 # Create a new ALB Target Group attachment
-resource "aws_autoscaling_attachment" "example" {
+resource "aws_autoscaling_attachment" "asg_attach" {
   autoscaling_group_name = aws_autoscaling_group.bar.id
   lb_target_group_arn    = aws_lb_target_group.test.arn
 }
@@ -106,7 +113,7 @@ resource "aws_route53_zone" "primary" {
   name = "example.com"
 }
 
-resource "aws_route53_record" "www" {
+resource "aws_route53_record" "A-record" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = "example.com"
   type    = "A"
