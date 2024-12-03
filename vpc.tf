@@ -67,7 +67,7 @@ resource "aws_instance" "bastion" {
   ami           = data.aws_ami.example.id
   instance_type = "t3.micro"
   subnet_id = aws_subnet.bastion.id
-  # iam_instance_profile = aws_iam_instance_profile.test_profile.name
+  iam_instance_profile = aws_iam_instance_profile.test_profile.name
   vpc_security_group_ids = [aws_security_group.allow_ssh.id]
   key_name   = "myKey"
 
@@ -76,10 +76,10 @@ resource "aws_instance" "bastion" {
   }
 }
 
-# resource "aws_iam_instance_profile" "test_profile" {
-#   name = "test_profile"
-#   role = aws_iam_role.ec2_role.name
-# }
+resource "aws_iam_instance_profile" "test_profile" {
+  name = "test_profile"
+  role = aws_iam_role.ec2_role.name
+}
 
 # resource "aws_instance" "app_1" {
 #   ami           = aws_ami.copy.example.id
@@ -119,6 +119,9 @@ resource "aws_launch_template" "boobar" {
   instance_type = "t3.micro"
   key_name   = "myKey"
   vpc_security_group_ids = [aws_security_group.private_sg.id]
+  iam_instance_profile {
+    name = aws_iam_instance_profile.test_profile.name
+  }
 
 }
 
@@ -204,7 +207,7 @@ resource "aws_security_group" "private_sg" {
 
 resource "aws_vpc_security_group_ingress_rule" "ingress_pri" {
   security_group_id = aws_security_group.private_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = aws_vpc.bast.cidr_block
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22  
