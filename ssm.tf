@@ -27,7 +27,7 @@ resource "aws_iam_role_policy_attachment" "ec2-attach" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_lb" "test" {
+resource "aws_lb" "main" {
   name               = "test-lb-tf"
   internal           = false
   load_balancer_type = "application"
@@ -74,23 +74,31 @@ egress {
 #   port             = 80
 # }
 
-resource "aws_lb_target_group" "alb-example" {
-  name        = "tf-example-lb-alb-tg"
-  target_type = "alb"
-  port        = 80
-  protocol    = "TCP"
-  vpc_id      = aws_vpc.app.id
-  health_check
-  {
-   healthy_threshold = 3
-   matcher = 200
-   path = "/"
-   protocol = HTTPS
+resource "aws_lb_target_group" "test" {
+  name     = "tf-example-lb-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.app.id
+}
+
+resource "aws_lb_listener" "http_listener" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
 resource "aws_lb_listener" "front_end" {
-  load_balancer_arn = aws_lb.front_end.arn
+  load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
@@ -98,24 +106,24 @@ resource "aws_lb_listener" "front_end" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.alb-example.arn
+    target_group_arn = aws_lb_target_group.test.arn
   }
 }
 
 # Create a new ALB Target Group attachment
 resource "aws_autoscaling_attachment" "asg_attach" {
-  autoscaling_group_name = aws_autoscaling_group.bar.id
+  autoscaling_group_name = aws_autoscaling_group.bar.name
   lb_target_group_arn    = aws_lb_target_group.test.arn
 }
 
 #Route 53
 resource "aws_route53_zone" "primary" {
-  name = "example.com"
+  name = "satya.aws.crlabs.cloud"
 }
 
 resource "aws_route53_record" "A-record" {
   zone_id = aws_route53_zone.primary.zone_id
-  name    = "example.com"
+  name    = "vpc-peer"
   type    = "A"
 
   alias {
@@ -127,7 +135,7 @@ resource "aws_route53_record" "A-record" {
 
 resource "aws_route53_record" "example" {
   for_each = {
-    for dvo in aws_acm_certificate.example.domain_validation_options : dvo.domain_name => {
+    for dvo in aws_acm_certificate.cert.domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
@@ -139,11 +147,11 @@ resource "aws_route53_record" "example" {
   records         = [each.value.record]
   ttl             = 60
   type            = each.value.type
-  zone_id         = data.aws_route53_zone.example.zone_id
+  zone_id         = aws_route53_zone.primary.zone_id
 }
 
 resource "aws_acm_certificate" "cert" {
-  domain_name       = "example.com"
+  domain_name       = "satya.aws.crlabs.cloud"
   validation_method = "DNS"
 
   tags = {
@@ -152,6 +160,6 @@ resource "aws_acm_certificate" "cert" {
 }
 
 resource "aws_acm_certificate_validation" "example" {
-  certificate_arn         = aws_acm_certificate.example.arn
+  certificate_arn         = aws_acm_certificate.cert.arn
   validation_record_fqdns = [for record in aws_route53_record.example : record.fqdn]
 }

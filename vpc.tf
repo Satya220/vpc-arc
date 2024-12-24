@@ -119,8 +119,9 @@ resource "aws_launch_template" "boobar" {
   instance_type = "t3.micro"
   key_name   = "myKey"
   vpc_security_group_ids = [aws_security_group.private_sg.id]
+  user_data = filebase64("${path.module}/webserver.sh")
   iam_instance_profile {
-    name = aws_iam_instance_profile.test_profile.name
+  name = aws_iam_instance_profile.test_profile.name
   }
 
 }
