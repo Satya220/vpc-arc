@@ -28,6 +28,7 @@ resource "aws_subnet" "bastion" {
 resource "aws_subnet" "public" {
   vpc_id     = aws_vpc.app.id
   cidr_block = "172.32.1.0/24"
+  availability_zone = "eu-west-1a"
 
   tags = {
     Name = "public"
@@ -47,6 +48,7 @@ resource "aws_subnet" "private" {
 resource "aws_subnet" "public_2" {
   vpc_id     = aws_vpc.app.id
   cidr_block = "172.32.3.0/24"
+  availability_zone = "eu-west-1b"
 
   tags = {
     Name = "public_2"
@@ -212,6 +214,14 @@ resource "aws_vpc_security_group_ingress_rule" "ingress_pri" {
   from_port         = 22
   ip_protocol       = "tcp"
   to_port           = 22  
+}
+
+resource "aws_vpc_security_group_ingress_rule" "https_pri" {
+  security_group_id = aws_security_group.private_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443  
 }
 
 resource "aws_vpc_security_group_ingress_rule" "http_pri" {

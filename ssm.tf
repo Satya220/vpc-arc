@@ -32,7 +32,7 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.lb_sg.id]
-  subnets            = [aws_subnet.private.id,aws_subnet.private_2.id]
+  subnets            = [aws_subnet.public.id,aws_subnet.public_2.id]
 }
 
 resource "aws_security_group" "lb_sg" {
@@ -44,6 +44,13 @@ resource "aws_security_group" "lb_sg" {
 ingress {
   from_port = "80"
   to_port = "80"
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+ingress {
+  from_port = "443"
+  to_port = "443"
   protocol = "tcp"
   cidr_blocks = ["0.0.0.0/0"]
 }
@@ -97,7 +104,7 @@ resource "aws_lb_listener" "http_listener" {
   }
 }
 
-resource "aws_lb_listener" "front_end" {
+resource "aws_lb_listener" "https_listener" {
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
@@ -123,7 +130,7 @@ resource "aws_route53_zone" "primary" {
 
 resource "aws_route53_record" "A-record" {
   zone_id = aws_route53_zone.primary.zone_id
-  name    = "vpc-peer"
+  name    = "satya.aws.crlabs.cloud"
   type    = "A"
 
   alias {
