@@ -1,5 +1,5 @@
 resource "aws_vpc" "bast" {
-  cidr_block       = "192.168.0.0/16"
+  cidr_block       = var.vpc_cidr_bast
   instance_tenancy = "default"
 
   tags = {
@@ -8,7 +8,7 @@ resource "aws_vpc" "bast" {
 }
 
 resource "aws_vpc" "app" {
-  cidr_block       = "172.32.0.0/16"
+  cidr_block       = var.vpc_cidr_app
   instance_tenancy = "default"
 
   tags = {
@@ -18,7 +18,7 @@ resource "aws_vpc" "app" {
 
 resource "aws_subnet" "bastion" {
   vpc_id     = aws_vpc.bast.id
-  cidr_block = "192.168.1.0/24"
+  cidr_block = var.sub_cidr_bast
 
   tags = {
     Name = "bastion"
@@ -27,7 +27,7 @@ resource "aws_subnet" "bastion" {
 
 resource "aws_subnet" "public" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.1.0/24"
+  cidr_block = var.sub_cidr_pub
   availability_zone = "eu-west-1a"
 
   tags = {
@@ -37,7 +37,7 @@ resource "aws_subnet" "public" {
 
 resource "aws_subnet" "private" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.2.0/24"
+  cidr_block = var.sub_cidr_pri
   availability_zone = "eu-west-1a"
 
   tags = {
@@ -47,7 +47,7 @@ resource "aws_subnet" "private" {
 
 resource "aws_subnet" "public_2" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.3.0/24"
+  cidr_block = var.sub_cidr_pub_2
   availability_zone = "eu-west-1b"
 
   tags = {
@@ -57,7 +57,7 @@ resource "aws_subnet" "public_2" {
 
 resource "aws_subnet" "private_2" {
   vpc_id     = aws_vpc.app.id
-  cidr_block = "172.32.4.0/24"
+  cidr_block = var.sub_cidr_pri_2
   availability_zone = "eu-west-1b"
 
   tags = {
